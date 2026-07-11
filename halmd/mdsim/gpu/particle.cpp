@@ -28,6 +28,7 @@
 #include <halmd/io/logger.hpp>
 #include <halmd/mdsim/gpu/particle.hpp>
 #include <halmd/mdsim/gpu/particle_kernel.hpp>
+#include <halmd/mdsim/gpu/position_shift.hpp>
 #include <halmd/mdsim/gpu/velocity.hpp>
 #include <halmd/utility/gpu/configure_kernel.hpp>
 #include <halmd/utility/gpu/device.hpp>

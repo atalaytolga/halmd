@@ -37,7 +37,7 @@ namespace host {
 template <typename particle_type>
 inline void shift_position(
     particle_type& particle
-  , box<particle_type::position_type::static_size> const& simulation_box
+  , box<particle_type::position_type::static_size> const& box
   , fixed_vector<double, particle_type::position_type::static_size> const& delta
 )
 {
@@ -52,9 +52,9 @@ inline void shift_position(
 
         r += delta;
 
-        image_type cross_vec;
-        while ((cross_vec = simulation_box.reduce_periodic(r)) != image_type(0)) {
-            img += cross_vec;
+        image_type crossing;
+        while ((crossing = box.reduce_periodic(r)) != image_type(0)) {
+            img += crossing;
         }
     }
 }
@@ -66,7 +66,7 @@ template <typename particle_type>
 inline void shift_position_group(
     particle_type& particle
   , particle_group& group
-  , box<particle_type::position_type::static_size> const& simulation_box
+  , box<particle_type::position_type::static_size> const& box
   , fixed_vector<double, particle_type::position_type::static_size> const& delta
 )
 {
@@ -81,9 +81,9 @@ inline void shift_position_group(
 
         r += delta;
 
-        image_type cross_vec;
-        while ((cross_vec = simulation_box.reduce_periodic(r)) != image_type(0)) {
-            img += cross_vec;
+        image_type crossing;
+        while ((crossing = box.reduce_periodic(r)) != image_type(0)) {
+            img += crossing;
         }
     }
 }
