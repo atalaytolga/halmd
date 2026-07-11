@@ -1,12 +1,12 @@
 [submodule "libs/h5xx"]
 	path = libs/h5xx
-	url = ../h5xx
+	url = https://github.com/halmd-org/h5xx.git
 [submodule "libs/cuda-wrapper"]
 	path = libs/cuda-wrapper
-	url = ../cuda-wrapper
+	url = https://github.com/halmd-org/cuda-wrapper.git
 [submodule "libs/luaponte"]
 	path = libs/luaponte
-	url = ../luaponte
+	url = https://github.com/halmd-org/luaponte.git
 [submodule "libs/cub"]
 	path = libs/cub
-	url = ../cub-slim
+	url = https://github.com/halmd-org/cub-slim.git
