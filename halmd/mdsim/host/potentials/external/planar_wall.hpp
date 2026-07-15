@@ -60,6 +60,11 @@ public:
     );
 
     /**
+     * Update planar wall positions.
+     */
+    void set_offset(scalar_container_type const& offset);
+
+    /**
      * Compute force and potential energy due to planar_wall walls.
      * Form of the potential is given here:
      * u(d)=epsilon*[(2/15)*(sigma/d)**9-wetting*(sigma/d)**3].

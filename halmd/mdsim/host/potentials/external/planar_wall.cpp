@@ -86,6 +86,17 @@ planar_wall<dimension, float_type>::planar_wall(
 }
 
 template <int dimension, typename float_type>
+void planar_wall<dimension, float_type>::set_offset(
+    scalar_container_type const& offset
+)
+{
+    if (offset.size() != offset_.size()) {
+        throw invalid_argument("number of wall offsets does not match number of walls");
+    }
+    offset_ = offset;
+}
+
+template <int dimension, typename float_type>
 void planar_wall<dimension, float_type>::luaopen(lua_State* L)
 {
     using namespace luaponte;
@@ -111,6 +122,7 @@ void planar_wall<dimension, float_type>::luaopen(lua_State* L)
                                , float_type
                                , shared_ptr<logger>
                              >())
+                            .def("set_offset", &planar_wall::set_offset)
                             .property("offset", &planar_wall::offset)
                             .property("surface_normal", &planar_wall::surface_normal)
                             .property("epsilon", &planar_wall::epsilon)
