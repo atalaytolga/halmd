@@ -63,6 +63,11 @@ public:
       , std::shared_ptr<halmd::logger> logger = std::make_shared<halmd::logger>()
     );
 
+    /**
+     * Update planar wall positions.
+     */
+    void set_offset(scalar_container_type const& offset);
+
     /** return gpu potential with textures */
     gpu_potential_type get_gpu_potential() const
     {
