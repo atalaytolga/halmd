@@ -23,6 +23,7 @@ halmd_add_library(halmd_mdsim_gpu
   neighbour.cpp
   particle.cpp
   position.cpp
+  position_shift_kernel.cu
   particle_group.cpp
   particle_kernel.cu
   velocity_kernel.cu

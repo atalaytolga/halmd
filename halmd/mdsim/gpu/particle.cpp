@@ -28,6 +28,7 @@
 #include <halmd/io/logger.hpp>
 #include <halmd/mdsim/gpu/particle.hpp>
 #include <halmd/mdsim/gpu/particle_kernel.hpp>
+#include <halmd/mdsim/gpu/position_shift.hpp>
 #include <halmd/mdsim/gpu/velocity.hpp>
 #include <halmd/utility/gpu/configure_kernel.hpp>
 #include <halmd/utility/gpu/device.hpp>
@@ -345,6 +346,8 @@ void particle<dimension, float_type>::luaopen(lua_State* L)
                     .def("rescale_velocity_group", &rescale_velocity_group<particle>)
                     .def("shift_rescale_velocity", &shift_rescale_velocity<particle>)
                     .def("shift_rescale_velocity_group", &shift_rescale_velocity_group<particle>)
+                    .def("shift_position", &shift_position<particle>)
+                    .def("shift_position_group", &shift_position_group<particle>)
                     .property("dimension", &wrap_dimension<dimension, float_type>)
                     .def("aux_enable", &particle::aux_enable)
                     .def("on_prepend_force", &particle::on_prepend_force)
