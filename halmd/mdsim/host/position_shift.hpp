@@ -72,10 +72,12 @@ inline void shift_position_group(
 {
     typedef typename particle_type::image_type image_type;
 
+    auto const& unordered = read_cache(group.unordered());
+
     auto position = make_cache_mutable(particle.position());
     auto image = make_cache_mutable(particle.image());
 
-    for (typename particle_group::size_type i : *group.unordered()) {
+    for (typename particle_group::size_type i : unordered) {
         auto& r = (*position)[i];
         auto& img = (*image)[i];
 
