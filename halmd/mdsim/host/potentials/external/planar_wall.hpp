@@ -1,6 +1,7 @@
 /*
  * Copyright © 2014-2015 Sutapa Roy
  * Copyright © 2014-2015 Felix Höfling
+ * Copyright © 2026      Tolga Atalay
  *
  * This file is part of HALMD.
  *
@@ -211,4 +212,3 @@ private:
 } // namespace halmd
 
 #endif /* ! HALMD_MDSIM_HOST_POTENTIALS_EXTERNAL_PLANAR_WALL_HPP */
-

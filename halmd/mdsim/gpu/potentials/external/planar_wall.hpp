@@ -2,6 +2,7 @@
  * Copyright © 2014-2015 Sutapa Roy
  * Copyright © 2014-2015 Felix Höfling
  * Copyright © 2020      Jaslo Ziska
+ * Copyright © 2026      Tolga Atalay
  *
  * This file is part of HALMD.
  *
