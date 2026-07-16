@@ -94,6 +94,7 @@ void planar_wall<dimension, float_type>::set_offset(
         throw invalid_argument("number of wall offsets does not match number of walls");
     }
     offset_ = offset;
+    on_set_offset_();
 }
 
 template <int dimension, typename float_type>
@@ -123,6 +124,7 @@ void planar_wall<dimension, float_type>::luaopen(lua_State* L)
                                , shared_ptr<logger>
                              >())
                             .def("set_offset", &planar_wall::set_offset)
+                            .def("on_set_offset", &planar_wall::on_set_offset)
                             .property("offset", &planar_wall::offset)
                             .property("surface_normal", &planar_wall::surface_normal)
                             .property("epsilon", &planar_wall::epsilon)

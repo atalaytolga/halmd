@@ -105,6 +105,11 @@ local M = module(function(args)
     -- apply the force (if necessary)
     table.insert(conn, particle:on_force(function() self:apply() end))
 
+    -- invalidate cache on offset update
+    if potential.on_set_offset then
+        table.insert(conn, potential:on_set_offset(function() self:invalidate() end))
+    end
+
     -- store potential Lua object (which contains the C++ object) as a
     -- read-only Lua property, so we may read it in profiler:on_profile
     -- and retrieve the description of the potential for the log entry
