@@ -2,6 +2,7 @@
  * Copyright © 2014-2015 Sutapa Roy
  * Copyright © 2014-2015 Felix Höfling
  * Copyright © 2020      Jaslo Ziska
+ * Copyright © 2026      Tolga Atalay
  *
  * This file is part of HALMD.
  *
@@ -31,6 +32,7 @@
 
 #include <halmd/io/logger.hpp>
 #include <halmd/mdsim/gpu/potentials/external/planar_wall_kernel.hpp>
+#include <halmd/utility/signal.hpp>
 
 namespace halmd {
 namespace mdsim {
@@ -45,6 +47,9 @@ template <int dimension, typename float_type>
 class planar_wall
 {
 public:
+    typedef halmd::signal<void ()> signal_type;
+    typedef signal_type::slot_function_type slot_function_type;
+
     typedef planar_wall_kernel::planar_wall<dimension> gpu_potential_type;
 
     typedef fixed_vector<float_type, dimension> vector_type;
@@ -62,6 +67,19 @@ public:
       , float_type smoothing
       , std::shared_ptr<halmd::logger> logger = std::make_shared<halmd::logger>()
     );
+
+    /**
+     * Update planar wall positions.
+     */
+    void set_offset(scalar_container_type const& offset);
+
+    /**
+     * Connect slot to wall update signal.
+     */
+    connection on_set_offset(slot_function_type const& slot)
+    {
+        return on_set_offset_.connect(slot);
+    }
 
     /** return gpu potential with textures */
     gpu_potential_type get_gpu_potential() const
@@ -142,6 +160,9 @@ private:
 
     /** module logger */
     std::shared_ptr<logger> logger_;
+
+    /** wall offset update signal */
+    signal_type on_set_offset_;
 };
 
 } // namespace external

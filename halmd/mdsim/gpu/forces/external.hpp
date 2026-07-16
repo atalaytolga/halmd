@@ -3,6 +3,7 @@
  * Copyright © 2016      Sutapa Roy
  * Copyright © 2013-2014 Nicolas Höft
  * Copyright © 2008-2012 Peter Colberg
+ * Copyright © 2026      Tolga Atalay
  *
  * This file is part of HALMD.
  *
@@ -65,6 +66,11 @@ public:
      * not, mark the cache as dirty.
      */
     void check_cache();
+
+    /**
+     * Mark force and auxiliary caches as dirty.
+     */
+    void invalidate();
 
     /**
      * Compute and apply the force to the particles in particle1.
@@ -168,6 +174,13 @@ inline void external<dimension, float_type, potential_type>::check_cache()
 }
 
 template <int dimension, typename float_type, typename potential_type>
+inline void external<dimension, float_type, potential_type>::invalidate()
+{
+    particle_->mark_force_dirty();
+    particle_->mark_aux_dirty();
+}
+
+template <int dimension, typename float_type, typename potential_type>
 inline void external<dimension, float_type, potential_type>::apply()
 {
     // process slot functions associated with signal
@@ -250,6 +263,7 @@ void external<dimension, float_type, potential_type>::luaopen(lua_State* L)
             [
                 class_<external>()
                     .def("check_cache", &external::check_cache)
+                    .def("invalidate", &external::invalidate)
                     .def("apply", &external::apply)
                     .def("on_prepend_apply", &external::on_prepend_apply)
                     .def("on_append_apply", &external::on_append_apply)

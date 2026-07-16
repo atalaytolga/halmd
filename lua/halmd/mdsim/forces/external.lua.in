@@ -3,6 +3,7 @@
 -- Copyright © 2016      Sutapa Roy
 -- Copyright © 2013      Nicolas Höft
 -- Copyright © 2010-2011 Peter Colberg
+-- Copyright © 2026      Tolga Atalay
 --
 -- This file is part of HALMD.
 --
@@ -104,6 +105,11 @@ local M = module(function(args)
     table.insert(conn, particle:on_prepend_force(function() self:check_cache() end))
     -- apply the force (if necessary)
     table.insert(conn, particle:on_force(function() self:apply() end))
+
+    -- invalidate cache on offset update
+    if potential.on_set_offset then
+        table.insert(conn, potential:on_set_offset(function() self:invalidate() end))
+    end
 
     -- store potential Lua object (which contains the C++ object) as a
     -- read-only Lua property, so we may read it in profiler:on_profile
