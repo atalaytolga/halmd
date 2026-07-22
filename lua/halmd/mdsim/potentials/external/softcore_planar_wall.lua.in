@@ -31,27 +31,35 @@ local module            = require("halmd.utility.module")
 -- Soft-core planar wall potential
 -- ===============================
 --
--- This module implements a soft-core WCA interaction with a collection of
--- planar walls. The signed distance of a particle at position
+-- This module implements a one-sided soft-core WCA interaction with a
+-- collection of planar walls. The normal :math:`\hat n_i` points out of the
+-- accessible region. The signed distance of a particle at position
 -- :math:`\vec r` from wall :math:`i` is
 --
 -- .. math::
 --
 --     d_i = \vec r \cdot \hat n_i - r_{0,i}.
 --
--- For a particle of species :math:`\alpha`, the effective distance and
+-- The wall acts only for :math:`d_i < 0`. For a particle of species
+-- :math:`\alpha`, its distance from the wall, effective distance, and
 -- interaction energy are
 --
 -- .. math::
 --
---     r_{\mathrm{soft},i} = |d_i| + (1 - \lambda) z_{\mathrm{cw},i}^\alpha,
+--     z_i = -d_i,
+--
+-- .. math::
+--
+--     r_{\mathrm{soft},i} = z_i + (1 - \lambda) z_{\mathrm{cw},i}^\alpha,
 --
 -- .. math::
 --
 --     U_i^\alpha = 4 \varepsilon_i^\alpha \lambda^2
 --     \left[\left(\frac{\sigma_i^\alpha}{r_{\mathrm{soft},i}}\right)^{12}
 --     - \left(\frac{\sigma_i^\alpha}{r_{\mathrm{soft},i}}\right)^6
---     + \frac{1}{4}\right] w(|d_i|).
+--     + \frac{1}{4}\right] w(z_i).
+--
+-- Force and potential energy are zero for :math:`d_i \geq 0`.
 --
 -- The interaction parameters ``epsilon``, ``sigma``, and ``cutoff`` are
 -- indexed by wall and particle species. A scalar value is promoted to a
@@ -82,7 +90,8 @@ end
 --
 -- :param table args: keyword arguments.
 -- :param table args.offset: wall positions :math:`r_{0,i}` in MD units.
--- :param table args.surface_normal: wall normal vectors :math:`\vec n_i`.
+-- :param table args.surface_normal: outward wall normal vectors
+--     :math:`\vec n_i`.
 -- :param matrix args.epsilon: interaction strengths
 --     :math:`\varepsilon_i^\alpha` in MD units.
 -- :param matrix args.sigma: interaction ranges :math:`\sigma_i^\alpha` in MD
@@ -186,7 +195,7 @@ local M = module(function(args)
     )
 
     self.description = property(function()
-        return "soft-core WCA planar wall" .. label
+        return "one-sided soft-core WCA planar wall" .. label
     end)
 
     self.memory = property(function()

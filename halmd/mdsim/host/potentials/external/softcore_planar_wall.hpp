@@ -82,9 +82,16 @@ public:
      * Compute force and potential energy due to soft-core planar walls.
      * Soft-core WCA planar wall.
      *
-     * The lambda-dependent effective distance is
+     * The signed distance from the wall is
      *
-     *   r_soft = abs(d) + (1 - lambda) * z_cw
+     *   d = dot(r, n) - offset.
+     *
+     * The surface normal points out of the accessible region. The wall acts
+     * only on particles with d < 0. Their distance from the wall and the
+     * lambda-dependent effective distance are
+     *
+     *   distance = -d,
+     *   r_soft = distance + (1 - lambda) * z_cw.
      *
      * and the potential is
      *
@@ -93,7 +100,9 @@ public:
      *       * [(sigma / r_soft)^12
      *          - (sigma / r_soft)^6
      *          + 1/4]
-     *       * w(abs(d)).
+     *       * w(distance).
+     *
+     * For d >= 0, both force and potential energy are zero.
      *
      */
     std::tuple<vector_type, float_type> operator()(vector_type const& r, unsigned int species) const
@@ -107,8 +116,12 @@ public:
           // Signed distance from particle to wall plane
           float_type d = inner_prod(r, surface_normal_(i)) - offset_(i);
 
-          // Absolute distance
-          float_type distance = std::abs(d);
+          // The normal points out of the accessible region. Apply the wall
+          // only on the inner side of the plane.
+          if (d >= 0)
+              continue;
+
+          float_type distance = -d;
 
           float_type z_cw = cutoff_(i, species);
 
@@ -151,18 +164,12 @@ public:
               24 * epsilon * lambda2
                  * (2 * x12 - x6)
                  / soft_distance;
-          float_type sign_d =
-              d > 0 ? float_type(1)
-                  : (d < 0 ? float_type(-1) : float_type(0));
-
           float_type const force_magnitude =
               force_core * cutoff_switch
               - energy_raw * d_switch_ddistance;
 
-          float_type fval = sign_d * force_magnitude;
-
           // accumulate force and potential energy
-          force += fval * surface_normal_(i);
+          force -= force_magnitude * surface_normal_(i);
           en_pot += en_wall;
        }
 
