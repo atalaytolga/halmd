@@ -9,3 +9,9 @@ halmd_add_potential(
   external planar_wall
   planar_wall.cpp
 )
+
+halmd_add_potential(
+  halmd_mdsim_host_potentials_external_softcore_planar_wall
+  external softcore_planar_wall
+  softcore_planar_wall.cpp
+)

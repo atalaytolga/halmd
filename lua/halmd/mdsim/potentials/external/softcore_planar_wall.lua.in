@@ -1,0 +1,203 @@
+--
+-- Copyright © 2026      Tolga Atalay
+-- Copyright © 2014-2015 Sutapa Roy
+-- Copyright © 2010-2014 Felix Höfling
+-- Copyright © 2013      Nicolas Höft
+-- Copyright © 2010      Peter Colberg
+--
+-- This file is part of HALMD.
+--
+-- HALMD is free software: you can redistribute it and/or modify
+-- it under the terms of the GNU Lesser General Public License as
+-- published by the Free Software Foundation, either version 3 of
+-- the License, or (at your option) any later version.
+--
+-- This program is distributed in the hope that it will be useful,
+-- but WITHOUT ANY WARRANTY; without even the implied warranty of
+-- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+-- GNU Lesser General Public License for more details.
+--
+-- You should have received a copy of the GNU Lesser General
+-- Public License along with this program.  If not, see
+-- <http://www.gnu.org/licenses/>.
+--
+
+local log               = require("halmd.io.log")
+local numeric           = require("halmd.numeric")
+local utility           = require("halmd.utility")
+local module            = require("halmd.utility.module")
+
+---
+-- Soft-core planar wall potential
+-- ===============================
+--
+-- This module implements a soft-core WCA interaction with a collection of
+-- planar walls. The signed distance of a particle at position
+-- :math:`\vec r` from wall :math:`i` is
+--
+-- .. math::
+--
+--     d_i = \vec r \cdot \hat n_i - r_{0,i}.
+--
+-- For a particle of species :math:`\alpha`, the effective distance and
+-- interaction energy are
+--
+-- .. math::
+--
+--     r_{\mathrm{soft},i} = |d_i| + (1 - \lambda) z_{\mathrm{cw},i}^\alpha,
+--
+-- .. math::
+--
+--     U_i^\alpha = 4 \varepsilon_i^\alpha \lambda^2
+--     \left[\left(\frac{\sigma_i^\alpha}{r_{\mathrm{soft},i}}\right)^{12}
+--     - \left(\frac{\sigma_i^\alpha}{r_{\mathrm{soft},i}}\right)^6
+--     + \frac{1}{4}\right] w(|d_i|).
+--
+-- The interaction parameters ``epsilon``, ``sigma``, and ``cutoff`` are
+-- indexed by wall and particle species. A scalar value is promoted to a
+-- wall-by-species matrix. The coupling parameter ``lambda`` is global.
+--
+
+-- grab C++ wrappers
+local softcore_planar_wall = {
+    host = {
+        [2] = assert(libhalmd.mdsim.host.potentials.external.softcore_planar_wall_2)
+      , [3] = assert(libhalmd.mdsim.host.potentials.external.softcore_planar_wall_3)
+    }
+}
+
+local function assert_matrix_shape(name, value, rows, columns)
+    if #value ~= rows then
+        error(("mismatching shape of argument '%s'"):format(name), 3)
+    end
+    for i = 1, rows do
+        if type(value[i]) ~= "table" or #value[i] ~= columns then
+            error(("mismatching shape of argument '%s'"):format(name), 3)
+        end
+    end
+end
+
+---
+-- Construct the soft-core planar wall module.
+--
+-- :param table args: keyword arguments.
+-- :param table args.offset: wall positions :math:`r_{0,i}` in MD units.
+-- :param table args.surface_normal: wall normal vectors :math:`\vec n_i`.
+-- :param matrix args.epsilon: interaction strengths
+--     :math:`\varepsilon_i^\alpha` in MD units.
+-- :param matrix args.sigma: interaction ranges :math:`\sigma_i^\alpha` in MD
+--     units.
+-- :param matrix args.cutoff: cutoff distances
+--     :math:`z_{\mathrm{cw},i}^\alpha` in MD units.
+-- :param number args.smoothing: smoothing parameter :math:`h`.
+-- :param number args.lambda: global coupling parameter in the interval
+--     :math:`[0, 1]`.
+-- :param number args.species: number of particle species.
+-- :param string args.memory: memory location; only ``"host"`` is supported
+--     *(optional)*.
+-- :param string args.label: instance label *(optional)*.
+--
+-- A scalar may be passed for ``epsilon``, ``sigma``, or ``cutoff`` when the
+-- same value applies to every wall and species.
+--
+local M = module(function(args)
+    local offset = utility.assert_type(utility.assert_kwarg(args, "offset"), "table")
+    local surface_normal = utility.assert_type(utility.assert_kwarg(args, "surface_normal"), "table")
+
+    local epsilon = utility.assert_kwarg(args, "epsilon")
+    if type(epsilon) ~= "table" and type(epsilon) ~= "number" then
+        error("bad argument 'epsilon'", 2)
+    end
+
+    local sigma = utility.assert_kwarg(args, "sigma")
+    if type(sigma) ~= "table" and type(sigma) ~= "number" then
+        error("bad argument 'sigma'", 2)
+    end
+
+    local cutoff = utility.assert_kwarg(args, "cutoff")
+    if type(cutoff) ~= "table" and type(cutoff) ~= "number" then
+        error("bad argument 'cutoff'", 2)
+    end
+
+    local smoothing = utility.assert_type(utility.assert_kwarg(args, "smoothing"), "number")
+    local lambda = utility.assert_type(utility.assert_kwarg(args, "lambda"), "number")
+    if lambda ~= lambda or lambda < 0 or lambda > 1 then
+        error("argument 'lambda' must be in the interval [0, 1]", 2)
+    end
+
+    local species = utility.assert_type(utility.assert_kwarg(args, "species"), "number")
+    if species < 1 or species % 1 ~= 0 then
+        error("argument 'species' must be a positive integer", 2)
+    end
+
+    local memory = args and args.memory or "host"
+    if memory ~= "host" then
+        error(("unsupported memory type '%s'"):format(tostring(memory)), 2)
+    end
+
+    local label = args and args.label and utility.assert_type(args.label, "string")
+    label = label and (" (%s)"):format(label) or ""
+    local logger = log.logger({label = "softcore_planar_wall" .. label})
+
+    local nwall = #offset
+    if nwall == 0 then
+        error("argument 'offset' must contain at least one wall", 2)
+    end
+    if #surface_normal == 0 then
+        error("argument 'surface_normal' must not be empty", 2)
+    end
+
+    -- Promote one normal vector to one vector per wall.
+    if type(surface_normal[1]) == "number" then
+        surface_normal = numeric.scalar_vector(nwall, surface_normal)
+    end
+    if #surface_normal ~= nwall then
+        error("mismatching shape of argument 'surface_normal'", 2)
+    end
+
+    local dimension = #surface_normal[1]
+    for i = 1, nwall do
+        if type(surface_normal[i]) ~= "table" or #surface_normal[i] ~= dimension then
+            error("mismatching shape of argument 'surface_normal'", 2)
+        end
+    end
+
+    -- Promote scalar interaction parameters to wall-by-species matrices.
+    if type(epsilon) == "number" then
+        epsilon = numeric.scalar_matrix(nwall, species, epsilon)
+    end
+    if type(sigma) == "number" then
+        sigma = numeric.scalar_matrix(nwall, species, sigma)
+    end
+    if type(cutoff) == "number" then
+        cutoff = numeric.scalar_matrix(nwall, species, cutoff)
+    end
+
+    assert_matrix_shape("epsilon", epsilon, nwall, species)
+    assert_matrix_shape("sigma", sigma, nwall, species)
+    assert_matrix_shape("cutoff", cutoff, nwall, species)
+
+    if not softcore_planar_wall.host[dimension] then
+        error(("unsupported dimension '%d'"):format(dimension), 2)
+    end
+
+    local self = softcore_planar_wall.host[dimension](
+        offset, surface_normal, epsilon, sigma, cutoff, smoothing, lambda, logger
+    )
+
+    self.description = property(function()
+        return "soft-core WCA planar wall" .. label
+    end)
+
+    self.memory = property(function()
+        return memory
+    end)
+
+    self.logger = property(function()
+        return logger
+    end)
+
+    return self
+end)
+
+return M
