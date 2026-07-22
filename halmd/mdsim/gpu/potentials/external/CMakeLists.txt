@@ -11,3 +11,10 @@ halmd_add_potential(
   planar_wall.cpp
   planar_wall_kernel.cu
 )
+
+halmd_add_potential(
+  halmd_mdsim_gpu_potentials_external_softcore_planar_wall
+  external softcore_planar_wall
+  softcore_planar_wall.cpp
+  softcore_planar_wall_kernel.cu
+)

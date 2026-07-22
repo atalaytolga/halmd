@@ -22,6 +22,7 @@
 -- <http://www.gnu.org/licenses/>.
 --
 
+local device            = require("halmd.utility.device")
 local log               = require("halmd.io.log")
 local numeric           = require("halmd.numeric")
 local utility           = require("halmd.utility")
@@ -73,6 +74,12 @@ local softcore_planar_wall = {
       , [3] = assert(libhalmd.mdsim.host.potentials.external.softcore_planar_wall_3)
     }
 }
+if device.gpu then
+    softcore_planar_wall.gpu = {
+        [2] = assert(libhalmd.mdsim.gpu.potentials.external.softcore_planar_wall_2)
+      , [3] = assert(libhalmd.mdsim.gpu.potentials.external.softcore_planar_wall_3)
+    }
+end
 
 local function assert_matrix_shape(name, value, rows, columns)
     if #value ~= rows then
@@ -102,8 +109,8 @@ end
 -- :param number args.lambda: global coupling parameter in the interval
 --     :math:`[0, 1]`.
 -- :param number args.species: number of particle species.
--- :param string args.memory: memory location; only ``"host"`` is supported
---     *(optional)*.
+-- :param string args.memory: memory location, ``"host"`` or ``"gpu"``
+--     *(optional)*. By default, the compute device selects the memory location.
 -- :param string args.label: instance label *(optional)*.
 --
 -- A scalar may be passed for ``epsilon``, ``sigma``, or ``cutoff`` when the
@@ -139,10 +146,7 @@ local M = module(function(args)
         error("argument 'species' must be a positive integer", 2)
     end
 
-    local memory = args and args.memory or "host"
-    if memory ~= "host" then
-        error(("unsupported memory type '%s'"):format(tostring(memory)), 2)
-    end
+    local memory = args and args.memory or (device.gpu and "gpu" or "host")
 
     local label = args and args.label and utility.assert_type(args.label, "string")
     label = label and (" (%s)"):format(label) or ""
@@ -186,11 +190,14 @@ local M = module(function(args)
     assert_matrix_shape("sigma", sigma, nwall, species)
     assert_matrix_shape("cutoff", cutoff, nwall, species)
 
-    if not softcore_planar_wall.host[dimension] then
+    if not softcore_planar_wall[memory] then
+        error(("unsupported memory type '%s'"):format(tostring(memory)), 2)
+    end
+    if not softcore_planar_wall[memory][dimension] then
         error(("unsupported dimension '%d'"):format(dimension), 2)
     end
 
-    local self = softcore_planar_wall.host[dimension](
+    local self = softcore_planar_wall[memory][dimension](
         offset, surface_normal, epsilon, sigma, cutoff, smoothing, lambda, logger
     )
 
