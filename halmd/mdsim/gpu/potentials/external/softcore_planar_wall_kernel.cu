@@ -89,11 +89,12 @@ softcore_planar_wall<dimension>::operator()(vector_type const& r) const
 
         float h2 = smoothing_ * smoothing_;
         float h4 = h2 * h2;
-        float denominator = 1.0f + h4 * delta4;
 
+        float denominator = delta4 + h4;
         float cutoff_switch = delta4 / denominator;
+
         float switch_derivative =
-            4.0f * delta3 / (denominator * denominator);
+            4.0f * h4 * delta3 / (denominator * denominator);
 
         float energy_raw = 4.0f * epsilon * lambda2 * bracket;
         float energy = energy_raw * cutoff_switch;

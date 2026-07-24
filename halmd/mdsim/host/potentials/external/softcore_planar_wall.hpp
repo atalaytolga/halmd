@@ -149,12 +149,11 @@ public:
 
           float_type h4 = std::pow(h, 4);
 
-          float_type switch_denominator = 1 + h4 * delta4;
+          float_type denominator = delta4 + h4;
+          float_type cutoff_switch = delta4 / denominator;
 
-          float_type cutoff_switch = delta4 / switch_denominator;
-
-          float_type d_switch_ddistance = 4 * delta3
-              / (switch_denominator * switch_denominator);
+          float_type d_switch_ddistance = 4 * h4 * delta3
+              / (denominator * denominator);
 
           float_type energy_raw = 4 * epsilon * lambda2 * bracket;
 
