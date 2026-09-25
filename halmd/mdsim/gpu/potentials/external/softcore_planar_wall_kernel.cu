@@ -22,8 +22,10 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+#include <halmd/algorithm/gpu/reduce_kernel.cuh>
 #include <halmd/mdsim/gpu/forces/external_kernel.cuh>
 #include <halmd/mdsim/gpu/potentials/external/softcore_planar_wall_kernel.hpp>
+#include <halmd/mdsim/potentials/external/softcore_planar_wall.hpp>
 #include <halmd/utility/tuple.hpp>
 
 #include <cuda_wrapper/cuda_wrapper.hpp>
@@ -114,6 +116,42 @@ softcore_planar_wall<dimension>::operator()(vector_type const& r) const
     return make_tuple(force, en_pot);
 }
 
+template <int dimension>
+__device__ float softcore_planar_wall<dimension>::du_dlambda(vector_type const& r) const
+{
+    float derivative = 0;
+    float const h2 = smoothing_ * smoothing_;
+    float const h4 = h2 * h2;
+    for (unsigned int i = 0; i < nwall_; ++i) {
+        vector_type normal;
+        float offset;
+        tie(normal, offset) <<= tex1Dfetch<float4>(geometry_, i);
+        float const d = inner_prod(r, normal) - offset;
+        if (d >= 0) {
+            continue;
+        }
+        fixed_vector<float, 4> const param = tex1Dfetch<float4>(potential_, species_ * nwall_ + i);
+        if (-d >= param[CUTOFF]) {
+            continue;
+        }
+        derivative += mdsim::potentials::external::detail::softcore_planar_wall_derivative(
+            -d, param[EPSILON], param[SIGMA], param[CUTOFF], h4, lambda_
+        );
+    }
+    return derivative;
+}
+
+template <int dimension>
+__device__ void total_du_dlambda<dimension>::operator()(float4 const& position)
+{
+    vector_type r;
+    unsigned int species;
+    tie(r, species) <<= position;
+    box_kernel::reduce_periodic(r, box_length_);
+    potential_.fetch_param(species);
+    sum_ += potential_.du_dlambda(r);
+}
+
 } // namespace softcore_planar_wall_kernel
 
 } // namespace external
@@ -131,4 +169,8 @@ template class external_wrapper<2, softcore_planar_wall<2> >;
 
 } // namespace gpu
 } // namespace mdsim
+
+template class reduction_kernel<mdsim::gpu::potentials::external::softcore_planar_wall_kernel::total_du_dlambda<2>>;
+template class reduction_kernel<mdsim::gpu::potentials::external::softcore_planar_wall_kernel::total_du_dlambda<3>>;
+
 } // namespace halmd

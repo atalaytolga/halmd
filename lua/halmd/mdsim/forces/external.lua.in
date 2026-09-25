@@ -63,6 +63,14 @@ local external = assert(libhalmd.mdsim.forces.external)
 --
 --    Disconnect force from profiler and particle module.
 --
+-- .. method:: du_dlambda()
+--
+--    For potentials supporting ``total_du_dlambda`` (soft-core planar walls),
+--    return the total coupling derivative over all particles attached to this
+--    force module and all its walls. This is a sum, not a per-particle average.
+--    Uses current positions and species with the same periodic reduction as
+--    the force calculation. Evaluated on demand, on the GPU for GPU particles.
+--
 -- .. method:: on_prepend_apply(slot)
 --
 --    Connect nullary slot function to signal. The signal is emitted before the
@@ -91,6 +99,12 @@ local M = module(function(args)
 
     -- construct force module
     local self = external(potential, particle, box, logger)
+
+    if potential.total_du_dlambda then
+        self.du_dlambda = function()
+            return potential:total_du_dlambda(particle, box)
+        end
+    end
 
     -- attach label as read-only property
     self.label = property(function(self)

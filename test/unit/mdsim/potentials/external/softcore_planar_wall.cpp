@@ -28,6 +28,7 @@
 #include <limits>
 #include <memory>
 #include <stdexcept>
+#include <vector>
 
 #include <halmd/mdsim/host/potentials/external/softcore_planar_wall.hpp>
 #include <halmd/utility/lua/lua.hpp>
@@ -160,6 +161,87 @@ void check_lua()
     ), lua_test_fixture::error(fixture.L));
 }
 
+template <int dimension, typename potential_type, typename particle_type>
+void check_total()
+{
+    using box_type = mdsim::box<dimension>;
+    using reference_type = mdsim::host::potentials::external::softcore_planar_wall<dimension, host_float_type>;
+    auto potential = make_potential<potential_type>(0.7);
+    typename box_type::matrix_type edges(dimension, dimension, 0);
+    for (unsigned int i = 0; i < dimension; ++i) {
+        edges(i, i) = 10;
+    }
+    auto box = std::make_shared<box_type>(edges);
+    // A non-block-sized population tests that GPU padding is excluded.
+    auto particle = std::make_shared<particle_type>(37, 2);
+    using position_type = typename particle_type::position_type;
+    std::vector<position_type> positions(particle->nparticle(), position_type(0));
+    std::vector<unsigned int> species(particle->nparticle());
+    double const x[] = {-0.5, 0.25, 10.25, -10.375, 4};
+    for (unsigned int i = 0; i < particle->nparticle(); ++i) {
+        positions[i][0] = x[i % 5];
+        species[i] = i % 2;
+    }
+    set_position(*particle, positions.begin());
+    set_species(*particle, species.begin());
+
+    auto reference_energy = [&](double lambda) {
+        auto reference = make_potential<reference_type>(lambda);
+        double energy = 0;
+        for (unsigned int i = 0; i < positions.size(); ++i) {
+            typename reference_type::vector_type r(positions[i]);
+            box->reduce_periodic(r);
+            energy += std::get<1>((*reference)(r, species[i]));
+        }
+        return energy;
+    };
+    bool const single_precision = sizeof(host_float_type) == sizeof(float)
+        || sizeof(typename potential_type::vector_type::value_type) == sizeof(float);
+    double const step = single_precision ? 0.0002 : 0.000001;
+    double const tolerance = single_precision ? 0.01 : 0.000001;
+    auto check_current_total = [&]() {
+        double const expected = (reference_energy(0.7 + step) - reference_energy(0.7 - step)) / (2 * step);
+        BOOST_CHECK_SMALL(potential->total_du_dlambda(*particle, *box) - expected,
+                          tolerance * std::max(1., std::abs(expected)));
+    };
+    check_current_total();
+    double const first_total = potential->total_du_dlambda(*particle, *box);
+    // A second query must not accumulate the previous result again.
+    BOOST_CHECK_EQUAL(potential->total_du_dlambda(*particle, *box), first_total);
+
+    lua_test_fixture fixture;
+    potential_type::luaopen(fixture.L);
+    particle_type::luaopen(fixture.L);
+    box_type::luaopen(fixture.L);
+    luaponte::globals(fixture.L)["potential"] = potential;
+    luaponte::globals(fixture.L)["particle"] = particle;
+    luaponte::globals(fixture.L)["box"] = box;
+    luaponte::globals(fixture.L)["expected"] = first_total;
+    BOOST_REQUIRE_MESSAGE(fixture.dostring(
+        "assert(math.abs(potential:total_du_dlambda(particle, box) - expected) < 1e-6)\n"
+    ), lua_test_fixture::error(fixture.L));
+
+    // Each query must read current species and positions, without applying forces first.
+    std::fill(species.begin(), species.end(), 1);
+    set_species(*particle, species.begin());
+    check_current_total();
+    BOOST_CHECK_NE(potential->total_du_dlambda(*particle, *box), first_total);
+    for (auto& r : positions) {
+        r[0] = 0.5;
+    }
+    set_position(*particle, positions.begin());
+    check_current_total();
+    auto uncoupled = make_potential<potential_type>(0);
+    BOOST_CHECK_EQUAL(uncoupled->total_du_dlambda(*particle, *box), 0);
+    typename potential_type::scalar_container_type offsets(2, 8);
+    potential->set_offset(offsets);
+    BOOST_CHECK_EQUAL(potential->total_du_dlambda(*particle, *box), 0);
+    auto empty = std::make_shared<particle_type>(0, 2);
+    BOOST_CHECK_EQUAL(potential->total_du_dlambda(*empty, *box), 0);
+    auto incompatible = std::make_shared<particle_type>(1, 3);
+    BOOST_CHECK_THROW(potential->total_du_dlambda(*incompatible, *box), std::invalid_argument);
+}
+
 BOOST_AUTO_TEST_CASE(softcore_planar_wall_host)
 {
     using potential2 = mdsim::host::potentials::external::softcore_planar_wall<2, host_float_type>;
@@ -170,6 +252,8 @@ BOOST_AUTO_TEST_CASE(softcore_planar_wall_host)
     check_exclusions<potential3>();
     check_lua<2, potential2>();
     check_lua<3, potential3>();
+    check_total<2, potential2, mdsim::host::particle<2, host_float_type>>();
+    check_total<3, potential3, mdsim::host::particle<3, host_float_type>>();
 }
 
 #ifdef HALMD_WITH_GPU
@@ -183,5 +267,13 @@ BOOST_FIXTURE_TEST_CASE(softcore_planar_wall_gpu, set_cuda_device)
     check_exclusions<potential3>();
     check_lua<2, potential2>();
     check_lua<3, potential3>();
+#ifdef USE_GPU_SINGLE_PRECISION
+    check_total<2, potential2, mdsim::gpu::particle<2, float>>();
+    check_total<3, potential3, mdsim::gpu::particle<3, float>>();
+#endif
+#ifdef USE_GPU_DOUBLE_SINGLE_PRECISION
+    check_total<2, potential2, mdsim::gpu::particle<2, dsfloat>>();
+    check_total<3, potential3, mdsim::gpu::particle<3, dsfloat>>();
+#endif
 }
 #endif

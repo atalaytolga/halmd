@@ -85,6 +85,8 @@ public:
     HALMD_GPU_ENABLED tuple<vector_type, float>
     operator()(vector_type const& r) const;
 
+    HALMD_GPU_ENABLED float du_dlambda(vector_type const& r) const;
+
 private:
     unsigned int species_;
     cudaTextureObject_t geometry_;
@@ -92,6 +94,35 @@ private:
     unsigned int nwall_;
     float smoothing_;
     float lambda_;
+};
+
+/** Reduce the coupling derivative over actual particles, excluding padded entries. */
+template <int dimension>
+class total_du_dlambda
+{
+public:
+    typedef float4 const* iterator;
+    typedef fixed_vector<float, dimension> vector_type;
+
+    total_du_dlambda(softcore_planar_wall<dimension> potential, vector_type const& box_length)
+      : potential_(potential), box_length_(box_length), sum_(0) {}
+
+    HALMD_GPU_ENABLED void operator()(float4 const& position);
+
+    HALMD_GPU_ENABLED void operator()(total_du_dlambda const& other)
+    {
+        sum_ += other.sum_;
+    }
+
+    HALMD_GPU_ENABLED double operator()() const
+    {
+        return sum_;
+    }
+
+private:
+    softcore_planar_wall<dimension> potential_;
+    vector_type box_length_;
+    double sum_;
 };
 
 } // namespace softcore_planar_wall_kernel

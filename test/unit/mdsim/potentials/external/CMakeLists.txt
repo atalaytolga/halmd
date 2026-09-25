@@ -38,6 +38,7 @@ if(HALMD_WITH_external_softcore_planar_wall)
   )
   target_link_libraries(test_unit_mdsim_potentials_external_softcore_planar_wall
     halmd_mdsim_host_potentials_external_softcore_planar_wall
+    halmd_mdsim_host
     halmd_mdsim
     test_tools_lua
     ${HALMD_TEST_LIBRARIES}

@@ -30,6 +30,8 @@
 #include <tuple>
 
 #include <halmd/io/logger.hpp>
+#include <halmd/mdsim/box.hpp>
+#include <halmd/mdsim/host/particle.hpp>
 #include <halmd/mdsim/potentials/external/softcore_planar_wall.hpp>
 #include <halmd/numeric/blas/fixed_vector.hpp>
 #include <halmd/utility/signal.hpp>
@@ -181,6 +183,24 @@ public:
     float_type du_dlambda(vector_type const& r, unsigned int species) const
     {
         return mdsim::potentials::external::detail::softcore_planar_wall_du_dlambda(*this, r, species);
+    }
+
+    /** Total coupling derivative over current particles, using force-module coordinates. */
+    double total_du_dlambda(particle<dimension, float_type> const& particle,
+                           mdsim::box<dimension> const& box) const
+    {
+        if (size() < particle.nspecies()) {
+            throw std::invalid_argument("size of potential coefficients less than number of particle species");
+        }
+        auto const& position = read_cache(particle.position());
+        auto const& species = read_cache(particle.species());
+        double total = 0;
+        for (unsigned int i = 0; i < particle.nparticle(); ++i) {
+            vector_type r = position[i];
+            box.reduce_periodic(r);
+            total += du_dlambda(r, species[i]);
+        }
+        return total;
     }
 
     scalar_container_type const& offset() const

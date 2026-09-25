@@ -28,7 +28,10 @@
 #include <lua.hpp>
 #include <memory>
 
+#include <halmd/algorithm/gpu/reduce.hpp>
 #include <halmd/io/logger.hpp>
+#include <halmd/mdsim/box.hpp>
+#include <halmd/mdsim/gpu/particle.hpp>
 #include <halmd/mdsim/gpu/potentials/external/softcore_planar_wall_kernel.hpp>
 #include <halmd/mdsim/potentials/external/softcore_planar_wall.hpp>
 #include <halmd/numeric/blas/fixed_vector.hpp>
@@ -99,6 +102,25 @@ public:
         return mdsim::potentials::external::detail::softcore_planar_wall_du_dlambda(*this, r, species);
     }
 
+    /** Total coupling derivative, evaluated and reduced on the GPU. */
+    template <typename particle_float_type>
+    double total_du_dlambda(particle<dimension, particle_float_type> const& particle,
+                           mdsim::box<dimension> const& box) const
+    {
+        if (size() < particle.nspecies()) {
+            throw std::invalid_argument("size of potential coefficients less than number of particle species");
+        }
+        if (particle.nparticle() == 0) {
+            return 0;
+        }
+        if (!du_dlambda_reduction_) {
+            du_dlambda_reduction_ = std::make_unique<reduction<derivative_accumulator_type>>();
+        }
+        auto const& position = read_cache(particle.position());
+        derivative_accumulator_type acc(get_gpu_potential(), static_cast<vector_type>(box.length()));
+        return (*du_dlambda_reduction_)(position.data(), position.data() + particle.nparticle(), acc)();
+    }
+
     scalar_container_type const& offset() const
     {
         return offset_;
@@ -146,6 +168,10 @@ public:
     static void luaopen(lua_State* L);
 
 private:
+    typedef softcore_planar_wall_kernel::total_du_dlambda<dimension> derivative_accumulator_type;
+    /** Lazily allocated, reusable buffers for derivative sampling. */
+    mutable std::unique_ptr<reduction<derivative_accumulator_type>> du_dlambda_reduction_;
+
     /** wall positions in MD units */
     scalar_container_type offset_;
     /** wall normal vectors in MD units */

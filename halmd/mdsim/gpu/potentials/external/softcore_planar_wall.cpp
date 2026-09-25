@@ -186,6 +186,12 @@ void softcore_planar_wall<dimension, float_type>::luaopen(lua_State* L)
                                , shared_ptr<logger>
                              >())
                             .def("du_dlambda", &softcore_planar_wall::du_dlambda)
+#ifdef USE_GPU_SINGLE_PRECISION
+                            .def("total_du_dlambda", &softcore_planar_wall::template total_du_dlambda<float>)
+#endif
+#ifdef USE_GPU_DOUBLE_SINGLE_PRECISION
+                            .def("total_du_dlambda", &softcore_planar_wall::template total_du_dlambda<dsfloat>)
+#endif
                             .def("set_offset", &softcore_planar_wall::set_offset)
                             .def("on_set_offset", &softcore_planar_wall::on_set_offset)
                             .property("offset", &softcore_planar_wall::offset)

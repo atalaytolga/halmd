@@ -31,6 +31,30 @@ namespace potentials {
 namespace external {
 namespace detail {
 
+/** Coupling derivative for one active wall at a fixed distance. */
+template <typename float_type>
+HALMD_GPU_ENABLED float_type softcore_planar_wall_derivative(
+    float_type distance, float_type epsilon, float_type sigma,
+    float_type cutoff, float_type h4, float_type lambda
+)
+{
+    float_type const soft_distance = distance + (1 - lambda) * cutoff;
+    float_type const x = sigma / soft_distance;
+    float_type const x2 = x * x;
+    float_type const x6 = x2 * x2 * x2;
+    float_type const x12 = x6 * x6;
+    float_type const bracket = x12 - x6 + float_type(0.25);
+    float_type const delta = distance - cutoff;
+    float_type const delta2 = delta * delta;
+    float_type const delta4 = delta2 * delta2;
+    float_type const cutoff_switch = delta4 / (delta4 + h4);
+    float_type const force_core = 24 * epsilon * lambda * lambda
+        * (2 * x12 - x6) / soft_distance;
+
+    // The switch is independent of lambda; d(soft_distance)/d(lambda) = -cutoff.
+    return cutoff_switch * (8 * epsilon * lambda * bracket + cutoff * force_core);
+}
+
 /**
  * Evaluate the coupling derivative at fixed position using host-side parameters.
  * Shared by the host and GPU potential objects for their Lua point queries.
@@ -59,23 +83,10 @@ typename potential_type::vector_type::value_type softcore_planar_wall_du_dlambda
             continue;
         }
 
-        float_type const distance = -d;
-        float_type const soft_distance = distance + (1 - lambda) * cutoff;
-        float_type const x = potential.sigma()(i, species) / soft_distance;
-        float_type const x2 = x * x;
-        float_type const x6 = x2 * x2 * x2;
-        float_type const x12 = x6 * x6;
-        float_type const bracket = x12 - x6 + float_type(0.25);
-        float_type const delta = distance - cutoff;
-        float_type const delta2 = delta * delta;
-        float_type const delta4 = delta2 * delta2;
-        float_type const cutoff_switch = delta4 / (delta4 + h4);
-        float_type const epsilon = potential.epsilon()(i, species);
-        float_type const force_core = 24 * epsilon * lambda * lambda
-            * (2 * x12 - x6) / soft_distance;
-
-        // The switch depends on distance only, and d(soft_distance)/d(lambda) = -cutoff.
-        derivative += cutoff_switch * (8 * epsilon * lambda * bracket + cutoff * force_core);
+        derivative += softcore_planar_wall_derivative(
+            -d, potential.epsilon()(i, species), potential.sigma()(i, species),
+            cutoff, h4, lambda
+        );
     }
     return derivative;
 }

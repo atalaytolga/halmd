@@ -137,6 +137,7 @@ void softcore_planar_wall<dimension, float_type>::luaopen(lua_State* L)
                                , shared_ptr<logger>
                              >())
                             .def("du_dlambda", &softcore_planar_wall::du_dlambda)
+                            .def("total_du_dlambda", &softcore_planar_wall::total_du_dlambda)
                             .def("set_offset", &softcore_planar_wall::set_offset)
                             .def("on_set_offset", &softcore_planar_wall::on_set_offset)
                             .property("offset", &softcore_planar_wall::offset)

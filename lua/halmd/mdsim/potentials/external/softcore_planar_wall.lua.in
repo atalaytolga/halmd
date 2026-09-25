@@ -78,6 +78,14 @@ local module            = require("halmd.utility.module")
 --
 --    Example: ``local derivative = potential:du_dlambda({0, 0, 1}, 0)``.
 --
+-- .. method:: total_du_dlambda(particle, box)
+--
+--    Return the sum of coupling derivatives over all particles and walls,
+--    using current particle positions and species and the box's periodic
+--    reduction. The GPU backend evaluates and reduces the sum on the GPU.
+--    The associated external force module provides the convenient equivalent
+--    ``local total = wall_force:du_dlambda()`` without arguments.
+--
 
 -- grab C++ wrappers
 local softcore_planar_wall = {
