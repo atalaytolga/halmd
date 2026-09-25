@@ -30,6 +30,7 @@
 #include <tuple>
 
 #include <halmd/io/logger.hpp>
+#include <halmd/mdsim/potentials/external/softcore_planar_wall.hpp>
 #include <halmd/numeric/blas/fixed_vector.hpp>
 #include <halmd/utility/signal.hpp>
 
@@ -176,6 +177,12 @@ public:
         return std::make_tuple(force, en_pot);
     }
 
+    /** Coupling derivative at fixed position*/
+    float_type du_dlambda(vector_type const& r, unsigned int species) const
+    {
+        return mdsim::potentials::external::detail::softcore_planar_wall_du_dlambda(*this, r, species);
+    }
+
     scalar_container_type const& offset() const
     {
         return offset_;
@@ -211,7 +218,7 @@ public:
         return lambda_;
     }
 
-    // size of parameter arrays, must match number of particle species
+
     unsigned int size() const
     {
         return epsilon_.size2();

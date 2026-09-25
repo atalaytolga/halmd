@@ -30,6 +30,7 @@
 
 #include <halmd/io/logger.hpp>
 #include <halmd/mdsim/gpu/potentials/external/softcore_planar_wall_kernel.hpp>
+#include <halmd/mdsim/potentials/external/softcore_planar_wall.hpp>
 #include <halmd/numeric/blas/fixed_vector.hpp>
 #include <halmd/utility/signal.hpp>
 
@@ -90,6 +91,12 @@ public:
           , static_cast<float>(smoothing_)
           , static_cast<float>(lambda_)
         );
+    }
+
+    /** Coupling derivative at fixed position, evaluated on the host (zero-based species). */
+    float_type du_dlambda(vector_type const& r, unsigned int species) const
+    {
+        return mdsim::potentials::external::detail::softcore_planar_wall_du_dlambda(*this, r, species);
     }
 
     scalar_container_type const& offset() const

@@ -66,6 +66,18 @@ local module            = require("halmd.utility.module")
 -- indexed by wall and particle species. A scalar value is promoted to a
 -- wall-by-species matrix. The coupling parameter ``lambda`` is global.
 --
+-- .. method:: du_dlambda(position, species)
+--
+--    Return the derivative of the potential energy with respect to ``lambda``
+--    at fixed ``position``, summed over all walls for one particle.
+--    ``position`` is a coordinate table and ``species`` is a zero-based species
+--    index. An out-of-range species index raises an error.
+--    The derivative is zero wherever the wall interaction is excluded.
+--    This point query runs on the CPU for both host and GPU potential objects;
+--    it does not sum over simulation particles.
+--
+--    Example: ``local derivative = potential:du_dlambda({0, 0, 1}, 0)``.
+--
 
 -- grab C++ wrappers
 local softcore_planar_wall = {

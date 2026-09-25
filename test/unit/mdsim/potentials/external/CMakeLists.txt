@@ -31,3 +31,29 @@ if(${HALMD_WITH_external_planar_wall})
     endif()
   endif()
 endif()
+
+if(HALMD_WITH_external_softcore_planar_wall)
+  add_executable(test_unit_mdsim_potentials_external_softcore_planar_wall
+    softcore_planar_wall.cpp
+  )
+  target_link_libraries(test_unit_mdsim_potentials_external_softcore_planar_wall
+    halmd_mdsim_host_potentials_external_softcore_planar_wall
+    halmd_mdsim
+    test_tools_lua
+    ${HALMD_TEST_LIBRARIES}
+  )
+  add_test(unit/mdsim/potentials/external/softcore_planar_wall/host
+    test_unit_mdsim_potentials_external_softcore_planar_wall --run_test=softcore_planar_wall_host --log_level=test_suite
+  )
+  if(HALMD_WITH_GPU)
+    target_link_libraries(test_unit_mdsim_potentials_external_softcore_planar_wall
+      halmd_mdsim_gpu_potentials_external_softcore_planar_wall
+      halmd_mdsim_gpu
+      halmd_algorithm_gpu
+      halmd_utility_gpu
+    )
+    add_test(unit/mdsim/potentials/external/softcore_planar_wall/gpu
+      test_unit_mdsim_potentials_external_softcore_planar_wall --run_test=softcore_planar_wall_gpu --log_level=test_suite
+    )
+  endif()
+endif()
